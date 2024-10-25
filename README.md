@@ -58,7 +58,7 @@ ac <- crant_table_query()
 You can also update rows automatically. Be careful when doing this. If you want to be sure not to mess something up, 
 you can take a 'snapshot' of the seatable before you edit it in the browser, which will save a historical version.
 
-You can then change column in `ac`, keeping their names, as youl ike. Then to update via R:
+You can then change columns in `ac`, keeping their names, as you like. Then to update via R:
 
 ```r
 # Update
