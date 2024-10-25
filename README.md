@@ -35,6 +35,11 @@ A good position is a point in the neuron you expect not to change during proofre
 
 You can access the seatable programmatically using the `crantr`, if you have access.
 
+```r
+remotes::github_install('flyconnectome/crantr')
+library(crantr)
+```
+
 You will first need to obtain your authorised login credentials, you only need to do this once:
 
 ```r
