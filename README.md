@@ -64,10 +64,15 @@ You can then change column in `ac`, keeping their names, as youl ike. Then to up
 # Update
 crant_table_update_rows(base="CRANTb"", 
                      table = "CRANTb_meta", 
-                     df = bc.new, 
+                     df = ac.new, 
                      append_allowed = FALSE, 
                      chunksize = 100)
 ```
+
+
+To update, you must have the seatable identifier for each column in `ac.new`, i.e. an `_id` column.
+
+This method is good for bulk uploads/changes.
 
 You can also make a quick, simpler update, replacing one column's entries with a given `update` for a set of root IDs.
 
@@ -82,7 +87,3 @@ crant_table_annotate(root_ids = c("576460752667713229",
                   append = FALSE,
                   column = "user_annotator")
 ```
-
-To update, you must have the seatable identifier for each column in `ac.new`, i.e. an `_id` column.
-
-This method is good for bulk uploads/changes.
