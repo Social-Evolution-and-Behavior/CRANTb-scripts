@@ -1,0 +1,35 @@
+{
+  "data_type": "uint8",
+  "mesh": "meshes",
+  "segment_properties": "segment_properties",
+  "num_channels": 1,
+  "scales": [
+    {
+      "chunk_sizes": [
+        [
+          131072,
+          147456,
+          7010
+        ]
+      ],
+      "encoding": "raw",
+      "key": "8_8_45",
+      "resolution": [
+        8,
+        8,
+        45
+      ],
+      "size": [
+        131072,
+        147456,
+        7010
+      ],
+      "voxel_offset": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "type": "segmentation"
+}
