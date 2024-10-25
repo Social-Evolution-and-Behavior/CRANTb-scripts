@@ -2,13 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+![crantb_example_neuron_ggplot](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/inst/images/crantb_example_neuron_ggplot.png?raw=true)
+
 ## Overview
 
 This repository hosts code for a pipeline designed to process ant connectome data. The pipeline facilitates the analysis of the CRANT (Clonal Raider ANT) connectome data sets. One of its tasks is to update meta data in our seatable, used for work-in-progress annotations in CRANTb, relevant code is in the subfolder `o2/` and runs on a daily basis on [O2](https://harvardmed.atlassian.net/wiki/spaces/O2/overview) at Harvard Medical School.
 
 ## Meta data management in seatable
 
-![ant_table](https://github.com/flyconnectome/crantr/blob/main/inst/images/ant_table.png?raw=true)
+![ant_table](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/inst/images/ant_table.png?raw=true)
 
 Seatable is a powerful way to make collaborative annotations in this connectome dataset and we encourage you to use it rather than keeping your own google sheets or similar to track neurons.
 It works similarly to google sheets, but has better filter views, data type management, programmatic access, etc. 
@@ -28,6 +30,8 @@ Updating from the `position` gives you the neuron at that position, regardless o
 Best practice is probably to add position always if you can, and `root_id` also if you want. 
 You may want to add only `root_id` if you want to track neuron but do not yet have a good position. 
 A good position is a point in the neuron you expect not to change during proofreading, e.g. the first branch point in the neuron where it splits from the primary neurite into axon and dendrite.
+
+![ant_table_ids](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/inst/images/ant_table_ids.png?raw=true)
 
 You can access the seatable programmatically using the `crantr`, if you have access.
 
