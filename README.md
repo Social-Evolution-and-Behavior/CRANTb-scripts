@@ -20,16 +20,16 @@ See our seatable [here](https://cloud.seatable.io/workspace/62919/dtable/CRANTb/
 If this link does not work you can request access by contacting Lindsey Lopes.
 
 Each row is a `CRANTb` neuron. If you hover your tool-tip over the **i** icon in each column header, you can see what that column records.
-Each neuron is identified by a 16-digit integer `root_id`, which is modified each time the neuron is edited.
+Each neuron is identified by its unique 16-digit integer `root_id`, which is modified each time the neuron is edited.
 As `CRANTb` is an active project, this happens frequently so our seatable needs to keep track of changes, which it does on a daily schedule.
 
 The update logic is `position` (voxel space) -> `supervoxel_id` -> `root_id`.
 If `position` and `supervoxel_id` are missing, `root_id` is updated directly but this is longer. 
 It will also take the most up to date `root_id` with the most number of voxels from the previous root_id, so if a neuron is split this could be the incorrect choice. 
-Updating from the `position` gives you the neuron at that position, regardless of size, merges or splits.
-Best practice is probably to add position always if you can, and `root_id` also if you want. 
-You may want to add only `root_id` if you want to track neuron but do not yet have a good position. 
-A good position is a point in the neuron you expect not to change during proofreading, e.g. the first branch point in the neuron where it splits from the primary neurite into axon and dendrite.
+Updating from `position` gives you the neuron at that position, regardless of its size, merges or splits.
+Best practice is to add position always if you can, and `root_id` in addition if you want. 
+You may want to add only `root_id` alone if you want to track a neuron but do not yet have a good position for it. 
+A good position is a point on the neuron that you expect not to change during proofreading, e.g. the first branch point in the neuron where it splits from the primary neurite into axon and dendrite.
 
 ![ant_table_ids](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/blob/main/inst/images/ant_table_ids.png?raw=true)
 
