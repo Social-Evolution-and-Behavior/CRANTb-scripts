@@ -43,7 +43,7 @@ library(crantr)
 You will first need to obtain your authorised login credentials, you only need to do this once:
 
 ```r
-crant_table_set_token(user="MY_EMAIL_FOR_SEATABLE.com",
+crant_table_set_token(user="MY_EMAIL_FOR_SEATABLE",
                pwd="MY_SEATABLE_PASSWORD",
                url="https://cloud.seatable.io/")
 ```
@@ -62,7 +62,7 @@ You can then change column in `ac`, keeping their names, as youl ike. Then to up
 
 ```r
 # Update
-crant_table_update_rows(base="CRANTb"", 
+crant_table_update_rows(base="CRANTb", 
                      table = "CRANTb_meta", 
                      df = ac.new, 
                      append_allowed = FALSE, 
