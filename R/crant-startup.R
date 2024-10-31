@@ -51,7 +51,6 @@ hemibrainr:::suppress(library(fs))
 hemibrainr:::suppress(library(purrr))
 hemibrainr:::suppress(library(dplyr))
 hemibrainr:::suppress(library(processx))
-hemibrainr:::suppress(register_saalfeldlab_registrations())
 
 # Source other custom functions
 source("crant/crant-functions.R")
