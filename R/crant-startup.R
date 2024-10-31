@@ -8,7 +8,7 @@ machine<-"o2"
 
 ###################
 ##### OPTIONS #####
-#################### 
+###################
 
 # google account authentication
 options(gargle_oauth_email="alexander.shakeel.bates@gmail.co.uk")
@@ -24,25 +24,20 @@ options(scipen = 999)
 library(crantr)
 hemibrainr:::suppress(library(bancr))
 hemibrainr:::suppress(library(hemibrainr))
-hemibrainr:::suppress(library(malevnc))
 hemibrainr:::suppress(library(nat.nblast))
 hemibrainr:::suppress(library(fafbseg))
 hemibrainr:::suppress(library(jsonlite))
 hemibrainr:::suppress(library(foreach))
-hemibrainr:::suppress(library(nat.jrcbrains))
 hemibrainr:::suppress(library(doMC))
 hemibrainr:::suppress(library(doParallel))
 hemibrainr:::suppress(library(progressr))
 hemibrainr:::suppress(library(googledrive))
-hemibrainr:::suppress(library(elmr))
 hemibrainr:::suppress(library(dplyr))
 hemibrainr:::suppress(library(tidyverse))
 hemibrainr:::suppress(library(bit64))
 hemibrainr:::suppress(library(reticulate))
 hemibrainr:::suppress(library(RSQLite))
 hemibrainr:::suppress(library(plyr))
-hemibrainr:::suppress(library(slackr))
-hemibrainr:::suppress(library(ggforce))
 hemibrainr:::suppress(library(natcpp))
 hemibrainr:::suppress(library(lubridate))
 hemibrainr:::suppress(library(googlesheets4))
@@ -53,7 +48,7 @@ hemibrainr:::suppress(library(dplyr))
 hemibrainr:::suppress(library(processx))
 
 # Source other custom functions
-source("crant/crant-functions.R")
+source("R/crant-functions.R")
 
 # get some nifty functions for easy use
 `%dopar%` <- foreach::`%dopar%`
