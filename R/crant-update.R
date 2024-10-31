@@ -1,5 +1,7 @@
 ####################################
 ### Update CRANT IDS in seatable ###
 ####################################
-source("banc/banc-startup.R")
+source("R/crant-startup.R")
+
+# run update
 crantr::crant_table_updateids()

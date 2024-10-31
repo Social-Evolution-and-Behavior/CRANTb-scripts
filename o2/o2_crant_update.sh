@@ -23,9 +23,6 @@ export UDUNITS2_LIBS=/n/app/udunits/2.2.28-gcc-9.2.0/lib
 
 cd /home/ab714/CRANTb-R
 
-echo "updating CRANTb IDs in seatable"
-Rscript R/crant-updateids.R
-
 echo "updating CRANTb meta in seatable"
 Rscript R/crant-update.R
 
