@@ -1,8 +1,8 @@
-# CRANTb-Scripts
+# CRANTb-scripts
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![crantb_example_neuron_ggplot](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/blob/main/inst/images/crantb_example_neuron_ggplot.png?raw=true)
+![crantb_example_neuron_ggplot](https://github.com/Social-Evolution-and-Behavior/CRANTb-scripts/blob/main/inst/images/crantb_example_neuron_ggplot.png?raw=true)
 
 ## Overview
 
@@ -17,7 +17,7 @@ You can add:
 
 ## Metadata Management in Seatable
 
-![ant_table](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/blob/main/inst/images/ant_table.png?raw=true)
+![ant_table](https://github.com/Social-Evolution-and-Behavior/CRANTb-scripts/blob/main/inst/images/ant_table.png?raw=true)
 
 We use Seatable, a powerful collaborative annotation tool, to manage metadata for the CRANTb connectome dataset. We encourage you to use Seatable rather than maintaining your own Google Sheets or similar.
 
@@ -38,7 +38,7 @@ Best practices:
 - Use only `root_id` alone if you don't have a good position for the neuron yet, but want to track it.
 - A good position is a point on the neuron that is unlikely to change during proofreading, such as the first branch point where the neuron splits into the axon and dendrite.
 
-![ant_table_ids](https://github.com/Social-Evolution-and-Behavior/CRANTb-R/blob/main/inst/images/ant_table_ids.png?raw=true)
+![ant_table_ids](https://github.com/Social-Evolution-and-Behavior/CRANTb-scripts/blob/main/inst/images/ant_table_ids.png?raw=true)
 
 You can access the Seatable programmatically using the `crantr` package, if you have the necessary access credentials.
 
