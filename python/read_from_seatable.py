@@ -1,4 +1,4 @@
-# This script shows how to read particular rows from seatable using a SQL query
+# This script shows how to read particular columns from seatable using a SQL query
 
 # Load libraries
 import seatable_api
