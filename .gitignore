@@ -2,7 +2,7 @@
 .Rhistory
 .Rapp.history
 # Session Data files
-# .RData
+.RData
 .rds
 # Example code in package build process
 *-Ex.R
@@ -24,7 +24,7 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 .Rproj.user
-#*.rda
+*.rda
 *make.log
 *make.err
 *flag.txt
