@@ -24,7 +24,7 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 .Rproj.user
-*.rda
+#*.rda
 *make.log
 *make.err
 *flag.txt
