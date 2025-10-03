@@ -3,6 +3,7 @@ library(ggplot2)
 library(dplyr)
 library(hemibrainr)
 library(pheatmap)
+library(elmr)
 
 # Look at CRANT data only
 choose_crant()
