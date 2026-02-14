@@ -40,3 +40,4 @@ extdata/*
 *.p
 *.DS_Store
 data/obj/*
+CLAUDE.md
