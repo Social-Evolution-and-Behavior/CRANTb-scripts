@@ -8,7 +8,7 @@ crant.meta <- crant_table_query()
 fafb.meta <- franken_meta() %>%
   dplyr::filter(!is.na(fafb_id))
 
-hemilineages <- c("DL1_dorsal","WEDd1","AOTUv4_ventral")
+hemilineages <- c("EBa1","LALv1_dorsal","DM","DL1_dorsal","WEDd1","AOTUv4_ventral")
 for(hl in hemilineages){
   try({
     ### CRANTb ###
@@ -60,7 +60,6 @@ for(hl in hemilineages){
     
   })
 }
-
 
 crant.meta.nt <- subset(crant.meta, !is.na(known_nt))
 crant.meta.nt.ids <- na.omit(crant.meta.nt$root_id)
