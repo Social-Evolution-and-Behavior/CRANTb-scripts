@@ -54,13 +54,24 @@ for (i in seq_len(nrow(to_process))) {
   tryCatch({
     neuron <- nat::read.neuron(swc_file)
     stats <- summary(nat::as.neuronlist(neuron))
-    metrics_list[[rid]] <- data.frame(
-      root_id = rid,
-      l2_nodes = stats$nodes,
-      l2_cable_length = round(stats$cable.length, 2),
-      l2_cable_length_um = round(stats$cable.length / 1000, 2),
-      stringsAsFactors = FALSE
-    )
+    # Stub SWC files (single node, from failed L2 downloads) get l2_nodes=1, cable_length=0
+    if (stats$nodes <= 1) {
+      metrics_list[[rid]] <- data.frame(
+        root_id = rid,
+        l2_nodes = 1,
+        l2_cable_length = 0,
+        l2_cable_length_um = 0,
+        stringsAsFactors = FALSE
+      )
+    } else {
+      metrics_list[[rid]] <- data.frame(
+        root_id = rid,
+        l2_nodes = stats$nodes,
+        l2_cable_length = round(stats$cable.length, 2),
+        l2_cable_length_um = round(stats$cable.length / 1000, 2),
+        stringsAsFactors = FALSE
+      )
+    }
   }, error = function(e) {
     message(sprintf("  Error reading %s: %s", rid, e$message))
   })

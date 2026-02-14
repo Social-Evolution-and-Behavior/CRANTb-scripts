@@ -75,6 +75,18 @@ for (b in seq_len(n_batches)) {
                          Force = TRUE)
       message(sprintf("  Saved %d skeletons to %s", length(successful_ids), crant.l2swc.save.path))
     }
+
+    # For neurons that failed (too few L2 nodes etc.), write a stub SWC
+    # so the metrics script can record them as l2_nodes=1, cable_length=0
+    failed_ids <- setdiff(batch_ids, names(crant.l2.skels))
+    if (length(failed_ids) > 0) {
+      dir.create(crant.l2swc.save.path, showWarnings = FALSE, recursive = TRUE)
+      for (fid in failed_ids) {
+        stub_file <- file.path(crant.l2swc.save.path, paste0(fid, ".swc"))
+        writeLines("1 1 0 0 0 0 -1", stub_file)
+      }
+      message(sprintf("  Wrote %d stub SWC files for failed neurons", length(failed_ids)))
+    }
   }, error = function(e) {
     message(sprintf("  Error in batch %d: %s", b, e$message))
   })
