@@ -80,6 +80,30 @@ crant_table_annotate(root_ids = c("576460752667713229",
                     column = "user_annotator")
 ```
 
+## Metrics
+
+The pipeline automatically computes and pushes neuron-level metrics to the Seatable. Each metric is handled by a separate script in `R/`, orchestrated by `R/crant-update.R`:
+
+| Metric | Script | Seatable columns |
+|--------|--------|------------------|
+| L2 skeletons | `crant-l2-download.R` | — (saved locally as SWC) |
+| Node count & cable length | `crant-l2-metrics.R` | `l2_nodes`, `l2_cable_length_um` |
+| Synapse counts | `crant-synapses.R` | `input_connections`, `output_connections` |
+| Backbone proofread sync | `crant-backbone-proofread.R` | CAVE `backbone_proofread` table |
+
+### Tracking which root_id was used
+
+Because `root_id` changes when a neuron is edited, we track which ID was used for each metric in the `root_id_processed` Seatable column. It contains comma-separated tags like:
+
+```
+l2_576460752653449509,synapses_576460752653449509
+```
+
+- `l2_[id]` — the root_id used for the last L2 skeleton download and metric calculation
+- `synapses_[id]` — the root_id used for the last synapse count
+
+When a neuron's `root_id` changes, the pipeline detects the mismatch and recomputes only the stale metrics. Stale local files (SWC, CSV) for old root_ids are cleaned up automatically.
+
 ## O2 Data Pipeline
 
 The O2 data pipeline facilitates the analysis of the CRANT (Clonal Raider ANT) connectome data sets. Relevant commands and scripts are in the `o2/` directory. One of its tasks is to update the metadata in our Seatable, used for work-in-progress annotations in CRANTb. The pipeline runs on a daily basis on [O2](https://harvardmed.atlassian.net/wiki/spaces/O2/overview) at Harvard Medical School.
