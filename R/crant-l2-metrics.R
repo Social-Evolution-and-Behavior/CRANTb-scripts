@@ -45,9 +45,7 @@ if (nrow(to_process) == 0) {
 
 # Calculate metrics for each neuron by reading SWC files
 message("### crantb: calculating L2 metrics ###")
-metrics_list <- list()
-
-for (i in seq_len(nrow(to_process))) {
+metrics_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
   rid <- to_process$root_id[i]
   swc_file <- file.path(crant.l2swc.save.path, paste0(rid, ".swc"))
 
@@ -56,17 +54,14 @@ for (i in seq_len(nrow(to_process))) {
     stats <- summary(nat::as.neuronlist(neuron))
     # Stub SWC files (single node, from failed L2 downloads) get l2_nodes=1, cable_length=0
     if (stats$nodes <= 1) {
-      metrics_list[[rid]] <- data.frame(
-        root_id = rid,
-        l2_nodes = 1,
-        l2_cable_length = 0,
-        l2_cable_length_um = 0,
+      data.frame(
+        root_id = rid, l2_nodes = 1,
+        l2_cable_length = 0, l2_cable_length_um = 0,
         stringsAsFactors = FALSE
       )
     } else {
-      metrics_list[[rid]] <- data.frame(
-        root_id = rid,
-        l2_nodes = stats$nodes,
+      data.frame(
+        root_id = rid, l2_nodes = stats$nodes,
         l2_cable_length = round(stats$cable.length, 2),
         l2_cable_length_um = round(stats$cable.length / 1000, 2),
         stringsAsFactors = FALSE
@@ -74,10 +69,11 @@ for (i in seq_len(nrow(to_process))) {
     }
   }, error = function(e) {
     message(sprintf("  Error reading %s: %s", rid, e$message))
+    NULL
   })
-
-  if (i %% 100 == 0) message(sprintf("  Processed %d/%d", i, nrow(to_process)))
-}
+})
+names(metrics_list) <- to_process$root_id
+metrics_list <- Filter(Negate(is.null), metrics_list)
 
 if (length(metrics_list) == 0) {
   message("No metrics calculated. Nothing to update.")
