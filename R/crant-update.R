@@ -31,6 +31,10 @@ source("R/crant-l2-metrics.R")
 message("### crantb: pulling synapse counts ###")
 source("R/crant-synapses.R")
 
+# calculate neuron volumes via L2 cache and push to seatable
+message("### crantb: calculating neuron volumes ###")
+source("R/crant-volumes.R")
+
 # sync backbone_proofread CAVE table with seatable status
 message("### crantb: syncing backbone proofread CAVE table ###")
 source("R/crant-backbone-proofread.R")
