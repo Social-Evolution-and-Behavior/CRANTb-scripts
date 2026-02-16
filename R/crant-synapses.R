@@ -70,9 +70,14 @@ synapse_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
       }
     }
 
-    # Count connections
-    input_connections <- sum(syns$prepost == 1, na.rm = TRUE)
-    output_connections <- sum(syns$prepost == 0, na.rm = TRUE)
+    # Count connections (handle neurons with 0 synapses)
+    if (nrow(syns) == 0 || is.null(syns$prepost)) {
+      input_connections <- 0
+      output_connections <- 0
+    } else {
+      input_connections <- sum(syns$prepost == 1, na.rm = TRUE)
+      output_connections <- sum(syns$prepost == 0, na.rm = TRUE)
+    }
 
     data.frame(
       root_id = rid,
