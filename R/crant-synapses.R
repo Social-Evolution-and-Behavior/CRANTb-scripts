@@ -40,9 +40,7 @@ if (nrow(to_process) == 0) {
 # Pull synapse data for each neuron
 message("### crantb: pulling synapse counts ###")
 dir.create(crant.synapses.save.path, showWarnings = FALSE, recursive = TRUE)
-synapse_list <- list()
-
-for (i in seq_len(nrow(to_process))) {
+synapse_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
   rid <- to_process$root_id[i]
   syn_file <- file.path(crant.synapses.save.path, paste0(rid, ".csv"))
 
@@ -76,7 +74,7 @@ for (i in seq_len(nrow(to_process))) {
     input_connections <- sum(syns$prepost == 1, na.rm = TRUE)
     output_connections <- sum(syns$prepost == 0, na.rm = TRUE)
 
-    synapse_list[[rid]] <- data.frame(
+    data.frame(
       root_id = rid,
       input_connections = input_connections,
       output_connections = output_connections,
@@ -84,10 +82,11 @@ for (i in seq_len(nrow(to_process))) {
     )
   }, error = function(e) {
     message(sprintf("  Error for %s: %s", rid, e$message))
+    NULL
   })
-
-  if (i %% 50 == 0) message(sprintf("  Processed %d/%d", i, nrow(to_process)))
-}
+})
+names(synapse_list) <- to_process$root_id
+synapse_list <- Filter(Negate(is.null), synapse_list)
 
 if (length(synapse_list) == 0) {
   message("No synapse data retrieved. Nothing to update.")
