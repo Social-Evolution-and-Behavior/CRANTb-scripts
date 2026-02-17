@@ -132,8 +132,10 @@ if (nrow(to_add) > 0) {
 
   message(sprintf("Added %d annotations to backbone_proofread", n_added))
 
-  # Brief pause for CAVE to process
-  Sys.sleep(max(n_added * 0.1, 1))
+  # Pause for CAVE to ingest new annotations (406 error if queried too soon)
+  wait_secs <- max(n_added * 0.5, 5)
+  message(sprintf("Waiting %.0fs for CAVE to ingest new annotations...", wait_secs))
+  Sys.sleep(wait_secs)
 }
 
 ################################
@@ -144,7 +146,10 @@ if (nrow(to_remove) > 0) {
   message("### crantb: removing annotations from CAVE backbone_proofread ###")
 
   client <- crant_cave_client()
-  annotation_ids <- to_remove$id
+  # Convert annotation IDs from bit64::integer64 to regular R integer.
+  # Arrow returns CAVE IDs as integer64, but reticulate misinterprets the
+  # underlying double storage as tiny floats instead of proper integers.
+  annotation_ids <- as.integer(to_remove$id)
 
   tryCatch({
     result <- client$annotation$delete_annotation("backbone_proofread", annotation_ids)
@@ -170,9 +175,24 @@ if (nrow(to_remove) > 0) {
 ##############################
 
 message("### crantb: verifying CAVE backbone_proofread table ###")
-Sys.sleep(5)
-cave_bp_final <- crant_backbone_proofread()
-message(sprintf("CAVE backbone_proofread now has %d annotations", nrow(cave_bp_final)))
+cave_bp_final <- NULL
+for (attempt in 1:5) {
+  Sys.sleep(10)
+  cave_bp_final <- tryCatch(
+    crant_backbone_proofread(),
+    error = function(e) {
+      message(sprintf("  Verification attempt %d failed: %s", attempt, e$message))
+      NULL
+    }
+  )
+  if (!is.null(cave_bp_final)) break
+  message(sprintf("  Retrying in 10s (attempt %d/5)...", attempt))
+}
+if (!is.null(cave_bp_final)) {
+  message(sprintf("CAVE backbone_proofread now has %d annotations", nrow(cave_bp_final)))
+} else {
+  message("Could not verify CAVE table (may still be ingesting)")
+}
 message(sprintf("Seatable has %d neurons marked BACKBONE_PROOFREAD", nrow(should_be_proofread)))
 
 message("### crantb: backbone proofread sync complete ###")
