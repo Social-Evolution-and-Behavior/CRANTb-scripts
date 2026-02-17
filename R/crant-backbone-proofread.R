@@ -34,7 +34,7 @@ ac$is_backbone_proofread <- sapply(ac$status, function(s) {
   if (is.na(s)) return(FALSE)
   entries <- unlist(strsplit(s, split = ",|, "))
   entries <- trimws(entries)
-  "BACKBONE_PROOFREAD" %in% entries & !("NOT_BACKBONE_PROOFREAD" %in% entries)
+  ("BACKBONE_PROOFREAD" %in% entries | "THOROUGHLY_PROOFREAD" %in% entries) & !("NOT_BACKBONE_PROOFREAD" %in% entries)
 })
 
 should_be_proofread <- ac %>% dplyr::filter(is_backbone_proofread)
@@ -45,7 +45,7 @@ message(sprintf("Seatable: %d neurons marked BACKBONE_PROOFREAD, %d not",
 
 # Read current CAVE backbone_proofread table
 message("### crantb: reading CAVE backbone_proofread table ###")
-cave_bp <- crant_backbone_proofread()
+cave_bp <- crantr:::crant_backbone_proofread()
 
 if (nrow(cave_bp) > 0) {
   # Convert CAVE positions to comparable strings
@@ -171,10 +171,9 @@ if (nrow(to_remove) > 0) {
 
 message("### crantb: verifying CAVE backbone_proofread table ###")
 Sys.sleep(5)
-cave_bp_final <- crant_backbone_proofread()
+cave_bp_final <- crantr:::crant_backbone_proofread()
 message(sprintf("CAVE backbone_proofread now has %d annotations", nrow(cave_bp_final)))
 message(sprintf("Seatable has %d neurons marked BACKBONE_PROOFREAD", nrow(should_be_proofread)))
-
 message("### crantb: backbone proofread sync complete ###")
 
 })
