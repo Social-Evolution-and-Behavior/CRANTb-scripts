@@ -6,10 +6,11 @@
 #SBATCH -o /home/ab714/CRANTb-R/o2/jobs/crant_update_%j.out         # File to which STDOUT will be written, including job ID (%j)
 #SBATCH -e /home/ab714/CRANTb-R/o2/jobs/crant_update_%j.err         # File to which STDERR will be written, including job ID (%j)
 
-echo "RUNNING BANC UPDATE"
+echo "RUNNING CRANT UPDATE IDS"
 
 start=`date +%s`
 
+source /etc/profile
 module purge
 module load gcc/14.2.0
 module load R/4.4.2
