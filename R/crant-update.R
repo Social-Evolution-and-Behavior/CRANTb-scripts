@@ -39,3 +39,15 @@ source("R/crant-volumes.R")
 message("### crantb: syncing backbone proofread CAVE table ###")
 source("R/crant-backbone-proofread.R")
 
+# split proofread neurons into axon/dendrite
+message("### crantb: splitting neurons into axon/dendrite ###")
+source("R/crant-split.R")
+
+# compile compartment metrics for seatable
+message("### crantb: compiling compartment metrics ###")
+source("R/crant-split-metrics.R")
+
+# annotate CAVE with compartment labels per synapse
+message("### crantb: updating CAVE compartment_synapses_v2 ###")
+source("R/crant-compartment-synapses.R")
+
