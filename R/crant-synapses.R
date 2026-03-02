@@ -16,7 +16,6 @@ ac[ac == "0"] <- NA
 
 # Filter out non-neurons
 ac <- ac %>%
-  dplyr::filter(!(grepl("DELETE|GLIA|NOT_A_NEURON|DEBRIS", status, ignore.case = TRUE) & !is.na(status))) %>%
   dplyr::filter(!is.na(root_id)) %>%
   dplyr::distinct(root_id, .keep_all = TRUE)
 
@@ -47,7 +46,7 @@ synapse_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
   tryCatch({
     # Check for cached synapse file with current root_id
     if (file.exists(syn_file)) {
-      syns <- readr::read_csv(syn_file, show_col_types = FALSE, progress = FALSE)
+      syns <- readr::read_csv(syn_file, show_col_types = FALSE, progress = FALSE, col_types = crant.col.types)
     } else {
       # Query CAVE for input synapses
       in.syns <- crant_partners(rid, partners = "input")

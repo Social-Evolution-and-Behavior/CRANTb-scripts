@@ -48,11 +48,11 @@ volume_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
   tryCatch({
     # Check for cached volume file with current root_id
     if (file.exists(vol_file)) {
-      vol <- readr::read_csv(vol_file, show_col_types = FALSE, progress = FALSE)
+      vol <- readr::read_csv(vol_file, show_col_types = FALSE, progress = FALSE, col_types = crant.col.types)
     } else {
       vol <- crant_neuron_volume(rid, OmitFailures = FALSE)
-      # Save locally
       readr::write_csv(vol, vol_file)
+      vol <- readr::read_csv(vol_file, show_col_types = FALSE, progress = FALSE, col_types = crant.col.types)
     }
 
     vol

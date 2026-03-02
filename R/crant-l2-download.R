@@ -16,7 +16,7 @@ ac[ac == "0"] <- NA
 # Filter out non-neurons
 ac <- ac %>%
   dplyr::filter(!(grepl("DELETE|GLIA|NOT_A_NEURON|DEBRIS", status, ignore.case = TRUE) & !is.na(status))) %>%
-  dplyr::filter(!is.na(root_id)) %>%
+  dplyr::filter(!is.na(root_id), volume > 10) %>%
   dplyr::distinct(root_id, .keep_all = TRUE)
 
 message(sprintf("Found %d neurons in seatable", nrow(ac)))
@@ -62,6 +62,7 @@ for (b in seq_len(n_batches)) {
 
   # Download
   tryCatch({
+    crantr::choose_crant()
     crant.l2.skels <- crant_read_l2skel(batch_ids, OmitFailures = TRUE)
 
     if (length(crant.l2.skels) > 0) {
