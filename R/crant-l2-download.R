@@ -8,7 +8,7 @@ local({
 # Query seatable for all neurons
 message("### crantb: querying seatable for neurons ###")
 ac <- crant_table_query(
-  sql = "SELECT _id, root_id, supervoxel_id, position, status, root_id_processed FROM CRANTb_meta"
+  sql = "SELECT _id, root_id, supervoxel_id, position, status, root_id_processed, volume FROM CRANTb_meta"
 )
 ac[ac == ""] <- NA
 ac[ac == "0"] <- NA
@@ -22,19 +22,9 @@ ac <- ac %>%
 message(sprintf("Found %d neurons in seatable", nrow(ac)))
 
 # Determine which neurons need L2 skeleton download
-# A neuron needs download if:
-#   1. No SWC file exists for its current root_id, OR
-#   2. The root_id has changed since last L2 processing
-ac$needs_download <- sapply(seq_len(nrow(ac)), function(i) {
-  rid <- ac$root_id[i]
-  swc_file <- file.path(crant.l2swc.save.path, paste0(rid, ".swc"))
-  if (!file.exists(swc_file)) return(TRUE)
-  # Also check root_id_processed tag
-  processed <- ac$root_id_processed[i]
-  stored <- get_processed_rootid(processed, "l2")
-  if (is.na(stored)) return(TRUE)
-  stored != as.character(rid)
-})
+# A neuron needs download if no SWC file exists for its current root_id.
+# (root_id_processed tracking is handled by crant-l2-metrics.R, not here)
+ac$needs_download <- !file.exists(file.path(crant.l2swc.save.path, paste0(ac$root_id, ".swc")))
 
 # Clean up stale SWC files for neurons whose root_id has changed
 cleanup_stale_files(ac$root_id, ac$root_id_processed, "l2",
@@ -49,8 +39,12 @@ if (length(neuron.ids) == 0) {
 }
 
 # Download L2 skeletons in batches
-batch_size <- 50
+batch_size <- 200
 n_batches <- ceiling(length(neuron.ids) / batch_size)
+
+# Set up CRANT once before all batches
+crantr::choose_crant()
+dir.create(crant.l2swc.save.path, showWarnings = FALSE, recursive = TRUE)
 
 for (b in seq_len(n_batches)) {
   start_idx <- (b - 1) * batch_size + 1
@@ -60,15 +54,13 @@ for (b in seq_len(n_batches)) {
   message(sprintf("Batch %d/%d: downloading %d skeletons (%d-%d of %d)",
                   b, n_batches, length(batch_ids), start_idx, end_idx, length(neuron.ids)))
 
-  # Download
+  # Download — OmitFailures handles per-neuron errors within crant_read_l2skel
   tryCatch({
-    crantr::choose_crant()
     crant.l2.skels <- crant_read_l2skel(batch_ids, OmitFailures = TRUE)
 
     if (length(crant.l2.skels) > 0) {
       # Save as SWC files
       successful_ids <- names(crant.l2.skels)
-      dir.create(crant.l2swc.save.path, showWarnings = FALSE, recursive = TRUE)
       nat::write.neurons(crant.l2.skels,
                          file = successful_ids,
                          dir = crant.l2swc.save.path,
@@ -81,7 +73,6 @@ for (b in seq_len(n_batches)) {
     # so the metrics script can record them as l2_nodes=1, cable_length=0
     failed_ids <- setdiff(batch_ids, names(crant.l2.skels))
     if (length(failed_ids) > 0) {
-      dir.create(crant.l2swc.save.path, showWarnings = FALSE, recursive = TRUE)
       for (fid in failed_ids) {
         stub_file <- file.path(crant.l2swc.save.path, paste0(fid, ".swc"))
         writeLines("1 1 0 0 0 0 -1", stub_file)
