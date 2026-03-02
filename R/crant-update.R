@@ -13,31 +13,31 @@ readr::write_csv(ac, file.path(file.path(crant.meta.save.path,"snapshots"),paste
 
 # run IDs update
 message("### crantb: updating root ids in crant table for crantb ###")
-crantr::crant_table_updateids()
+try({crantr::crant_table_updateids()})
 
 # run ngl link update for issue neurons, decommissioned for now
 #message("### crantb: updating ngl links in crant table for crantb ###")
 #crantr:::crant_table_update_tracing()
 
+# calculate neuron volumes via L2 cache and push to seatable
+message("### crantb: calculating neuron volumes ###")
+try({source("R/crant-volumes.R")})
+
 # run L2 skeleton download for new/changed neurons
 message("### crantb: downloading L2 skeletons ###")
-source("R/crant-l2-download.R")
+try({source("R/crant-l2-download.R")})
 
 # run L2 metrics (nodes, cable length) and push to seatable
 message("### crantb: calculating L2 metrics ###")
-source("R/crant-l2-metrics.R")
+try({source("R/crant-l2-metrics.R")})
 
 # run synapse counts and push to seatable
 message("### crantb: pulling synapse counts ###")
-source("R/crant-synapses.R")
-
-# calculate neuron volumes via L2 cache and push to seatable
-message("### crantb: calculating neuron volumes ###")
-source("R/crant-volumes.R")
+try({source("R/crant-synapses.R")})
 
 # sync backbone_proofread CAVE table with seatable status
 message("### crantb: syncing backbone proofread CAVE table ###")
-source("R/crant-backbone-proofread.R")
+try({source("R/crant-backbone-proofread.R")})
 
 # split proofread neurons into axon/dendrite
 message("### crantb: splitting neurons into axon/dendrite ###")
