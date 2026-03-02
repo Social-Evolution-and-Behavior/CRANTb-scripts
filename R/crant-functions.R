@@ -81,3 +81,60 @@ cleanup_stale_files <- function(root_ids, root_id_processed, prefix, dir, ext = 
   invisible(deleted)
 }
 
+# Round numeric columns in a data.frame to specified significant digits,
+# converting columns that look like integers to actual integers.
+# From bancpipeline/banc/banc-functions.R
+round_dataframe <- function(x, exclude = NULL, digits = 4, ...) {
+  numcols <- names(x)[sapply(x, function(c) is.numeric(c) && !inherits(c, "integer64"))]
+  numcols <- setdiff(numcols, exclude)
+  for (i in numcols) {
+    col <- x[[i]]
+    intcol <- try(checkmate::asInteger(col), silent = TRUE)
+    if (sum(is.na(col)) == length(col)) {
+      x[[i]] <- col
+    } else if (is.integer(intcol)) {
+      x[[i]] <- intcol
+    } else {
+      x[[i]] <- signif(col, digits)
+    }
+  }
+  x
+}
+
+# Assign Strahler order to neuron skeleton nodes (and connectors if present).
+# From bancpipeline/banc/banc-functions.R
+assign_strahler <- function(x, ...) UseMethod("assign_strahler")
+assign_strahler.neuronlist <- function(x, ...) {
+  nat::nlapply(x, assign_strahler.neuron, ...)
+}
+assign_strahler.neuron <- function(x, ...) {
+  if (ifelse(!is.null(x$nTrees), x$nTrees != 1, FALSE)) {
+    x$d$strahler_order <- 1
+    for (tree in seq_len(x$nTrees)) {
+      v <- unique(unlist(x$SubTrees[tree]))
+      if (length(v) < 2) {
+        x$d[x$d$PointNo %in% v, ]$strahler_order <- 1
+      } else {
+        neuron <- tryCatch(
+          nat::prune_vertices(x, verticestoprune = v, invert = TRUE),
+          error = function(e) NULL
+        )
+        if (sum(nat::branchpoints(x) %in% v) == 0) {
+          x$d[x$d$PointNo %in% v, ]$strahler_order <- 1
+        } else if (!is.null(neuron)) {
+          s <- nat::strahler_order(neuron)
+          x$d[x$d$PointNo %in% v, ]$strahler_order <- s$points
+        }
+      }
+    }
+  } else {
+    s <- nat::strahler_order(x)
+    x$d$strahler_order <- s$points
+  }
+  if ("synaptic" %in% class(x) && !is.null(x$connectors)) {
+    relevant.points <- subset(x$d, PointNo %in% x$connectors$treenode_id)
+    x$connectors$strahler_order <- relevant.points[
+      match(x$connectors$treenode_id, relevant.points$PointNo), ]$strahler_order
+  }
+  x
+}
