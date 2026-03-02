@@ -8,7 +8,7 @@ local({
 # Query seatable for all neurons
 message("### crantb: querying seatable for neurons ###")
 ac <- crant_table_query(
-  sql = "SELECT _id, root_id, supervoxel_id, position, status, root_id_processed, volume FROM CRANTb_meta"
+  sql = "SELECT _id, root_id, supervoxel_id, position, status, root_id_processed, volume_nm3 FROM CRANTb_meta"
 )
 ac[ac == ""] <- NA
 ac[ac == "0"] <- NA
@@ -16,7 +16,7 @@ ac[ac == "0"] <- NA
 # Filter out non-neurons
 ac <- ac %>%
   dplyr::filter(!(grepl("DELETE|GLIA|NOT_A_NEURON|DEBRIS", status, ignore.case = TRUE) & !is.na(status))) %>%
-  dplyr::filter(!is.na(root_id), volume > 10) %>%
+  dplyr::filter(!is.na(root_id), volume_nm3 > 10) %>%
   dplyr::distinct(root_id, .keep_all = TRUE)
 
 message(sprintf("Found %d neurons in seatable", nrow(ac)))
