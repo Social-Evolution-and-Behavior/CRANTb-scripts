@@ -57,9 +57,6 @@ if (nrow(ac) == 0) {
   return(invisible())
 }
 
-# Determine which neurons need split update
-ac$needs_update <- needs_metric_update(ac$root_id, ac$root_id_processed, "split")
-
 # Clean up stale files for neurons whose root_id has changed
 cleanup_stale_files(ac$root_id, ac$root_id_processed, "split",
                     dir = split.folder, ext = ".swc")
@@ -71,13 +68,14 @@ cleanup_stale_files(ac$root_id, ac$root_id_processed, "split",
 ###############################################
 
 # Check which neurons already have both split SWC and synapse CSV
+# (stale files for old root_ids have been cleaned up above)
 done.swc <- gsub("\\.swc$", "", list.files(split.folder))
 done.syn <- gsub("\\.csv$", "", list.files(synapses.folder))
 done.ids <- intersect(done.swc, done.syn)
 
-# Need processing: needs_update OR missing output files
+# Need processing: output files missing for current root_id
 to_process <- ac %>%
-  dplyr::filter(needs_update | !(root_id %in% done.ids))
+  dplyr::filter(!(root_id %in% done.ids))
 
 # Check that L2 skeletons exist for these neurons
 swc_files <- file.path(crant.l2swc.save.path, paste0(to_process$root_id, ".swc"))
