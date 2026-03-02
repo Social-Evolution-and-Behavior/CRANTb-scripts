@@ -38,52 +38,50 @@ if (length(neuron.ids) == 0) {
   return(invisible())
 }
 
-# Download L2 skeletons in batches
-batch_size <- 200
-n_batches <- ceiling(length(neuron.ids) / batch_size)
-
-# Set up CRANT once before all batches
+# Download L2 skeletons with per-neuron timeout (10 min)
 crantr::choose_crant()
 dir.create(crant.l2swc.save.path, showWarnings = FALSE, recursive = TRUE)
 
-for (b in seq_len(n_batches)) {
-  start_idx <- (b - 1) * batch_size + 1
-  end_idx <- min(b * batch_size, length(neuron.ids))
-  batch_ids <- neuron.ids[start_idx:end_idx]
+message(sprintf("### crantb: downloading %d L2 skeletons (10 min timeout per neuron) ###",
+                length(neuron.ids)))
+n_ok <- 0
+n_fail <- 0
 
-  message(sprintf("Batch %d/%d: downloading %d skeletons (%d-%d of %d)",
-                  b, n_batches, length(batch_ids), start_idx, end_idx, length(neuron.ids)))
+for (i in seq_along(neuron.ids)) {
+  rid <- neuron.ids[i]
+  swc_file <- file.path(crant.l2swc.save.path, paste0(rid, ".swc"))
 
-  # Download — OmitFailures handles per-neuron errors within crant_read_l2skel
-  tryCatch({
-    crant.l2.skels <- crant_read_l2skel(batch_ids, OmitFailures = TRUE)
+  if (i %% 50 == 1) {
+    message(sprintf("  Progress: %d/%d (ok: %d, fail: %d)", i, length(neuron.ids), n_ok, n_fail))
+  }
 
-    if (length(crant.l2.skels) > 0) {
-      # Save as SWC files
-      successful_ids <- names(crant.l2.skels)
-      nat::write.neurons(crant.l2.skels,
-                         file = successful_ids,
-                         dir = crant.l2swc.save.path,
-                         format = 'swc',
-                         Force = TRUE)
-      message(sprintf("  Saved %d skeletons to %s", length(successful_ids), crant.l2swc.save.path))
-    }
-
-    # For neurons that failed (too few L2 nodes etc.), write a stub SWC
-    # so the metrics script can record them as l2_nodes=1, cable_length=0
-    failed_ids <- setdiff(batch_ids, names(crant.l2.skels))
-    if (length(failed_ids) > 0) {
-      for (fid in failed_ids) {
-        stub_file <- file.path(crant.l2swc.save.path, paste0(fid, ".swc"))
-        writeLines("1 1 0 0 0 0 -1", stub_file)
+  ok <- tryCatch({
+    R.utils::withTimeout({
+      skel <- crant_read_l2skel(rid, OmitFailures = TRUE)
+      if (length(skel) > 0) {
+        nat::write.neurons(skel, file = names(skel),
+                           dir = crant.l2swc.save.path,
+                           format = 'swc', Force = TRUE)
+        TRUE
+      } else {
+        # Too few L2 nodes etc. — write stub so metrics script records l2_nodes=1, cable_length=0
+        writeLines("1 1 0 0 0 0 -1", swc_file)
+        FALSE
       }
-      message(sprintf("  Wrote %d stub SWC files for failed neurons", length(failed_ids)))
-    }
+    }, timeout = 600, onTimeout = "error")
   }, error = function(e) {
-    message(sprintf("  Error in batch %d: %s", b, e$message))
+    msg <- if (grepl("timeout|elapsed", e$message, ignore.case = TRUE))
+      sprintf("  TIMEOUT: %s (>10 min)", rid)
+    else
+      sprintf("  Error: %s — %s", rid, e$message)
+    message(msg)
+    writeLines("1 1 0 0 0 0 -1", swc_file)
+    FALSE
   })
+
+  if (ok) n_ok <- n_ok + 1 else n_fail <- n_fail + 1
 }
 
-message("### crantb: L2 skeleton download complete ###")
+message(sprintf("### crantb: L2 download complete — %d ok, %d fail ###", n_ok, n_fail))
 
 })
