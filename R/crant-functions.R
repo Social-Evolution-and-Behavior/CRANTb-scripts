@@ -1,16 +1,26 @@
 # hidden
+# Vectorized: works correctly when called from dplyr::mutate() on a column
 append_status <- function(status, update){
-  status=paste(c(status,update),collapse=",")
-  update.col<-paste(sort(unique(unlist(strsplit(status,split=",|, ")))),collapse=",")
-  gsub("^,| ","",update.col)
+  vapply(status, function(s) {
+    s <- paste(c(s, update), collapse = ",")
+    s <- paste(sort(unique(unlist(strsplit(s, split = ",|, ")))), collapse = ",")
+    gsub("^,| ", "", s)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 # hidden
-subtract_status <- function(status, update){
-  satuses <- sort(unique(unlist(strsplit(status,split=",|, "))))
-  satuses <- sort(unique(setdiff(satuses,update)))
-  update.col<-paste0(satuses,collapse=",")
-  gsub("^,| ","",update.col)
+# Vectorized: works correctly when called from dplyr::mutate() on a column
+subtract_status <- function(status, update, invert = FALSE){
+  vapply(status, function(s) {
+    statuses <- sort(unique(unlist(strsplit(s, split = ",|, "))))
+    if (invert) {
+      statuses <- sort(unique(intersect(statuses, update)))
+    } else {
+      statuses <- sort(unique(setdiff(statuses, update)))
+    }
+    result <- paste0(statuses, collapse = ",")
+    gsub("^,| ", "", result)
+  }, character(1), USE.NAMES = FALSE)
 }
 
 # Get the root_id stored for a given metric prefix in root_id_processed
