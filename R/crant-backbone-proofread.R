@@ -146,10 +146,13 @@ if (nrow(to_remove) > 0) {
   message("### crantb: removing annotations from CAVE backbone_proofread ###")
 
   client <- crant_cave_client()
-  # Convert annotation IDs from bit64::integer64 to regular R integer.
-  # Arrow returns CAVE IDs as integer64, but reticulate misinterprets the
-  # underlying double storage as tiny floats instead of proper integers.
-  annotation_ids <- as.integer(to_remove$id)
+  # Arrow returns CAVE IDs as bit64::integer64, which reticulate misreads
+  # (the underlying doubles transfer as tiny floats), while as.integer()
+  # overflows to NA for ids above .Machine$integer.max. Route through
+  # character -> py_eval so they arrive as exact Python ints.
+  id_strings <- as.character(to_remove$id)
+  annotation_ids <- reticulate::py_eval(
+    sprintf("[%s]", paste(id_strings, collapse = ",")), convert = FALSE)
 
   tryCatch({
     result <- client$annotation$delete_annotation("backbone_proofread", annotation_ids)
@@ -158,15 +161,16 @@ if (nrow(to_remove) > 0) {
     message(sprintf("Error removing annotations: %s", e$message))
     message("Attempting one-by-one removal...")
     n_removed <- 0
-    for (aid in annotation_ids) {
+    for (aid in id_strings) {
       tryCatch({
-        client$annotation$delete_annotation("backbone_proofread", aid)
+        client$annotation$delete_annotation("backbone_proofread",
+                                            reticulate::py_eval(aid, convert = FALSE))
         n_removed <- n_removed + 1
       }, error = function(e2) {
         message(sprintf("  Failed to remove annotation %s: %s", aid, e2$message))
       })
     }
-    message(sprintf("Removed %d/%d annotations", n_removed, length(annotation_ids)))
+    message(sprintf("Removed %d/%d annotations", n_removed, length(id_strings)))
   })
 }
 

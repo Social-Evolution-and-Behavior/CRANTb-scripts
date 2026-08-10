@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -c 1                             # Request cores
-#SBATCH -t 0-02:00                       # Runtime in D-HH:MM format
+#SBATCH -t 0-12:00                       # Runtime in D-HH:MM format
 #SBATCH -p short                         # Partition to run in
 #SBATCH --mem-per-cpu=8G                 # Memory per core
 #SBATCH -o /home/ab714/CRANTb-R/o2/jobs/crant_update_%j.out         # File to which STDOUT will be written, including job ID (%j)
@@ -19,6 +19,7 @@ module load java/jdk-23.0.1
 
 export UDUNITS2_INCLUDE=/n/app/udunits/2.2.28-gcc-9.2.0/include
 export UDUNITS2_LIBS=/n/app/udunits/2.2.28-gcc-9.2.0/lib
+ulimit -c 0  # suppress core dumps from R shutdown crashes
 
 cd /home/ab714/CRANTb-R
 
