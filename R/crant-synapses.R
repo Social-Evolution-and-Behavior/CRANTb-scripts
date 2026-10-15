@@ -60,8 +60,10 @@ synapse_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
         out.syns$prepost <- 0L
       }
 
-      # Combine
-      syns <- plyr::rbind.fill(in.syns, out.syns)
+      # Combine, dropping empty results: CAVE returns all-character columns
+      # for 0-row queries, which corrupt the integer64 id columns on rbind
+      syns <- Filter(function(d) nrow(d) > 0, list(in.syns, out.syns))
+      syns <- if (length(syns)) plyr::rbind.fill(syns) else data.frame()
 
       # Save locally
       if (nrow(syns) > 0) {

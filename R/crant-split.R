@@ -143,9 +143,6 @@ for (batch_idx in seq_along(batches)) {
     neurons <- neurons[good]
     if (length(neurons) == 0) next
 
-    # Set id field on each neuron
-    neurons <- crantr:::add_field_seq(neurons, entries = names(neurons), field = "id")
-
     # b. Resample to 100nm
     neurons <- nat:::resample.neuronlist(neurons, stepsize = 100, OmitFailures = TRUE)
 
@@ -165,6 +162,9 @@ for (batch_idx in seq_along(batches)) {
         }
       }
     }
+
+    # Set id field on each neuron (after resampling, which drops custom fields)
+    neurons <- crantr:::add_field_seq(neurons, entries = names(neurons), field = "id")
 
     # d. Add synapses
     neurons <- nat::nlapply(neurons,
