@@ -2,14 +2,13 @@
 ### Update CAVE compartment_synapses_pre_v2 and
 ### compartment_synapses_post_v2
 ###
-### Labels each synapses_v2 synapse with the compartment it
-### sits on, separately for the presynaptic and the
+### Labels synapses_v2 synapses with the compartment they
+### sit on, separately for the presynaptic and the
 ### postsynaptic neuron. Both tables use the reference_tag
 ### schema, referencing synapses_v2:
 ###   - target_id: annotation ID in synapses_v2
 ###   - tag:       "axon", "dendrite", "primary_dendrite",
 ###                "primary_neurite" or "soma"
-### A synapse has at most one row in each table.
 ###
 ### Labelled neurons:
 ###   - afferent neurons: every synapse "axon" (by rule)
@@ -18,16 +17,18 @@
 ### Labels come from l2split/synapses/{root_id}.csv, written
 ### by crant-split.R. Synapses flagged as bad are skipped.
 ###
+### A synapse is only labelled when BOTH its presynaptic and
+### postsynaptic neurons are labelled neurons, i.e. it is a
+### good output in one neuron's labels and a good input in
+### another's. It then has one row in each table.
+###
 ### CAVE annotations cannot be edited in place, so this
-### script keeps a local manifest of what it has posted:
-###   compartments/manifest/{root_id}.csv  annotation_id,
-###                                       target_id, side, tag
-###   compartments/synced.csv             root_id, csv_mtime
-### Each run diffs the labels each neuron should have
-### against the manifest, deletes what is stale and posts
-### what is missing. Neurons that are edited (new root_id),
-### lose proofread status or change flow class have their
-### old rows removed.
+### script keeps a local manifest of what it has posted
+### (compartments/manifest.csv: annotation_id, target_id,
+### side, tag). Each run works out the full set of labels
+### wanted, deletes posted rows that are no longer wanted
+### (neuron edited, demoted, reclassified, or its partner
+### was) and posts the missing ones.
 ###
 ### Environment variables:
 ###   CRANT_COMPARTMENT_DRY_RUN=TRUE  report changes only
@@ -46,12 +47,12 @@ compartment_tags <- c("axon", "dendrite", "primary_dendrite",
                       "primary_neurite", "soma")
 synapses.folder <- file.path(crant.l2split.save.path, "synapses")
 compartments.folder <- file.path(crant.save.path, "compartments")
-manifest.folder <- file.path(compartments.folder, "manifest")
-synced.file <- file.path(compartments.folder, "synced.csv")
+manifest.file <- file.path(compartments.folder, "manifest.csv")
 dry_run <- isTRUE(as.logical(Sys.getenv("CRANT_COMPARTMENT_DRY_RUN", "FALSE")))
 time_budget <- as.numeric(Sys.getenv("CRANT_COMPARTMENT_HOURS", "4")) * 3600
 chunksize <- 5000
 start_time <- Sys.time()
+chr_cols <- readr::cols(.default = readr::col_character())
 if (dry_run) message("DRY RUN: no changes will be made to CAVE or the manifest")
 
 ###########################
@@ -79,8 +80,39 @@ labelled <- ac %>%
   dplyr::filter(has_split, !is.na(rule) | is_backbone_proofread(status))
 labelled$csv <- file.path(synapses.folder, paste0(labelled$root_id, ".csv"))
 labelled <- labelled[file.exists(labelled$csv), ]
-labelled$csv_mtime <- format(file.mtime(labelled$csv), "%Y-%m-%d %H:%M:%OS3")
-message(sprintf("Found %d neurons with compartment labels", nrow(labelled)))
+message(sprintf("Found %d labelled neurons", nrow(labelled)))
+
+###############################################
+### Labels wanted                           ###
+###############################################
+
+message("### crantb: reading compartment labels ###")
+syns <- dplyr::bind_rows(lapply(labelled$csv, function(f) {
+  x <- readr::read_csv(f, col_types = chr_cols, progress = FALSE)
+  if (!nrow(x) || !all(c("connector_id", "prepost", "status", "Label") %in% colnames(x))) return(NULL)
+  x <- x[, c("connector_id", "prepost", "status", "Label")]
+  x$mtime <- file.mtime(f)
+  x
+}))
+want <- syns %>%
+  dplyr::filter(status %in% "good", !is.na(connector_id)) %>%
+  dplyr::transmute(target_id = connector_id,
+                   side = ifelse(prepost == "0", "pre", "post"),
+                   tag = gsub("\\.", "_", hemibrainr::standard_compartments(as.integer(Label))),
+                   mtime = mtime) %>%
+  dplyr::filter(tag %in% compartment_tags) %>%
+  # If two neurons' labels claim the same side of a synapse, one is stale:
+  # keep the most recently written
+  dplyr::arrange(dplyr::desc(mtime)) %>%
+  dplyr::distinct(target_id, side, .keep_all = TRUE) %>%
+  dplyr::select(-mtime)
+rm(syns)
+
+# Only synapses labelled on both sides, i.e. between two labelled neurons
+both <- intersect(want$target_id[want$side == "pre"], want$target_id[want$side == "post"])
+want <- want[want$target_id %in% both, ]
+message(sprintf("%d synapses between labelled neurons (%d rows across both tables)",
+                length(both), nrow(want)))
 
 ######################################
 ### Check the CAVE tables exist    ###
@@ -96,205 +128,91 @@ if (length(missing_tables) && !dry_run) {
 }
 
 ###########################
-### Read the manifest   ###
+### Diff with manifest  ###
 ###########################
 
-if (!dry_run) dir.create(manifest.folder, recursive = TRUE, showWarnings = FALSE)
-manifest_cols <- readr::cols(.default = readr::col_character())
-read_manifest <- function(rid) {
-  f <- file.path(manifest.folder, paste0(rid, ".csv"))
-  if (!file.exists(f)) {
-    return(data.frame(annotation_id = character(0), target_id = character(0),
-                      side = character(0), tag = character(0)))
-  }
-  readr::read_csv(f, col_types = manifest_cols, progress = FALSE)
-}
-write_manifest <- function(rid, m) {
-  f <- file.path(manifest.folder, paste0(rid, ".csv"))
-  if (nrow(m)) readr::write_csv(m, f) else if (file.exists(f)) file.remove(f)
-}
-
-manifest_files <- list.files(manifest.folder, pattern = "\\.csv$", full.names = TRUE)
-manifest <- if (length(manifest_files)) {
-  readr::read_csv(manifest_files, col_types = manifest_cols, progress = FALSE, id = "file") %>%
-    dplyr::mutate(root_id = sub("\\.csv$", "", basename(file))) %>%
-    dplyr::select(-file)
+manifest <- if (file.exists(manifest.file)) {
+  readr::read_csv(manifest.file, col_types = chr_cols, progress = FALSE)
 } else {
   data.frame(annotation_id = character(0), target_id = character(0),
-             side = character(0), tag = character(0), root_id = character(0))
+             side = character(0), tag = character(0))
 }
-synced <- if (file.exists(synced.file)) {
-  readr::read_csv(synced.file, col_types = manifest_cols, progress = FALSE)
-} else {
-  data.frame(root_id = character(0), csv_mtime = character(0))
+message(sprintf("Manifest: %d annotations posted", nrow(manifest)))
+
+want_key <- paste(want$target_id, want$side, want$tag)
+have_key <- paste(manifest$target_id, manifest$side, manifest$tag)
+to_delete <- manifest[!(have_key %in% want_key), ]
+to_add <- want[!(want_key %in% have_key), ]
+message(sprintf("%d annotations to delete, %d to add", nrow(to_delete), nrow(to_add)))
+
+if (dry_run) {
+  print(table(side = to_add$side, tag = to_add$tag))
+  message("### crantb: compartment synapse sync complete (dry run) ###")
+  return(invisible())
 }
-message(sprintf("Manifest: %d annotations for %d neurons",
-                nrow(manifest), length(unique(manifest$root_id))))
 
 ###########################
 ### CAVE helpers        ###
 ###########################
 
+dir.create(compartments.folder, recursive = TRUE, showWarnings = FALSE)
 np <- reticulate::import("numpy", convert = FALSE)
 as_py_int64 <- function(x) np$array(as.numeric(x))$astype("int64")$tolist()
 
 post_rows <- function(table, df) {
-  ids <- character(0)
-  for (chunk in split(df, ceiling(seq_len(nrow(df)) / chunksize))) {
-    pdf <- reticulate::r_to_py(data.frame(target_id = as.numeric(chunk$target_id),
-                                          tag = chunk$tag))
-    pdf$`__setitem__`("target_id", pdf$`__getitem__`("target_id")$astype("int64"))
-    res <- reticulate::py_to_r(
-      fcc$annotation$post_annotation(table, pdf$to_dict(orient = "records")))
-    new_ids <- sprintf("%.0f", as.numeric(unlist(res)))
-    if (length(new_ids) != nrow(chunk)) {
-      stop(sprintf("CAVE returned %d ids for %d annotations posted to %s",
-                   length(new_ids), nrow(chunk), table))
-    }
-    ids <- c(ids, new_ids)
+  pdf <- reticulate::r_to_py(data.frame(target_id = as.numeric(df$target_id),
+                                        tag = df$tag))
+  pdf$`__setitem__`("target_id", pdf$`__getitem__`("target_id")$astype("int64"))
+  res <- reticulate::py_to_r(
+    fcc$annotation$post_annotation(table, pdf$to_dict(orient = "records")))
+  ids <- sprintf("%.0f", as.numeric(unlist(res)))
+  if (length(ids) != nrow(df)) {
+    stop(sprintf("CAVE returned %d ids for %d annotations posted to %s",
+                 length(ids), nrow(df), table))
   }
   ids
 }
 
-delete_rows <- function(table, ids) {
-  for (chunk in split(ids, ceiling(seq_along(ids) / chunksize))) {
-    fcc$annotation$delete_annotation(table, as_py_int64(chunk))
-  }
-}
+# Record each change in the manifest as soon as CAVE has accepted it
+save_manifest <- function() readr::write_csv(manifest, manifest.file)
 
-# Delete manifest rows (any root, both tables) from CAVE
-delete_manifest_rows <- function(m) {
-  for (s in names(cave_tables)) {
-    ids <- m$annotation_id[m$side == s]
-    if (length(ids)) delete_rows(cave_tables[[s]], ids)
-  }
-}
+###########################
+### Delete, then add    ###
+###########################
 
-############################################
-### Remove neurons no longer labelled    ###
-############################################
-
-# Neurons edited (new root_id), demoted from proofread, reclassified or
-# deleted: everything posted for their old root_id is removed
-stale_roots <- setdiff(unique(manifest$root_id), labelled$root_id)
-stale <- manifest %>% dplyr::filter(root_id %in% stale_roots)
-message(sprintf("%d annotations to remove for %d neurons no longer labelled",
-                nrow(stale), length(stale_roots)))
-if (nrow(stale) && !dry_run) {
-  delete_manifest_rows(stale)
-  for (rid in stale_roots) write_manifest(rid, manifest[0, c("annotation_id", "target_id", "side", "tag")])
-  manifest <- manifest %>% dplyr::filter(!(root_id %in% stale_roots))
-  synced <- synced %>% dplyr::filter(!(root_id %in% stale_roots))
-  readr::write_csv(synced, synced.file)
-}
-
-############################################
-### Sync labelled neurons                ###
-############################################
-
-# A neuron needs syncing if its labels CSV changed since it was last synced
-to_sync <- labelled %>%
-  dplyr::left_join(synced %>% dplyr::rename(synced_mtime = csv_mtime), by = "root_id") %>%
-  dplyr::filter(is.na(synced_mtime) | synced_mtime != csv_mtime)
-message(sprintf("%d neurons to sync (%d already in sync)",
-                nrow(to_sync), nrow(labelled) - nrow(to_sync)))
-
-# Owner of each (synapse, side) in the manifest, to resolve conflicts when
-# a synapse moves from one neuron to another
-owner_key <- paste(manifest$target_id, manifest$side)
-n_added <- 0
+# Delete first, so no synapse ever has two rows in a table
 n_deleted <- 0
-n_synced <- 0
-
-for (i in seq_len(nrow(to_sync))) {
-  if (!dry_run && as.numeric(difftime(Sys.time(), start_time, units = "secs")) > time_budget) {
-    message(sprintf("Time budget reached; %d neurons left for the next run",
-                    nrow(to_sync) - i + 1))
-    break
-  }
-  rid <- to_sync$root_id[i]
-
-  tryCatch({
-    # Labels this neuron should have
-    syns <- readr::read_csv(to_sync$csv[i], col_types = manifest_cols, progress = FALSE)
-    if (!nrow(syns) || is.null(syns$Label)) {
-      syns <- data.frame(connector_id = character(0), prepost = character(0),
-                         Label = character(0), status = character(0))
-    }
-    if (is.null(syns$status)) syns$status <- "good"
-    want <- syns %>%
-      dplyr::filter(status %in% "good", !is.na(connector_id)) %>%
-      dplyr::transmute(target_id = connector_id,
-                       side = ifelse(prepost == "0", "pre", "post"),
-                       tag = gsub("\\.", "_", hemibrainr::standard_compartments(as.integer(Label)))) %>%
-      dplyr::filter(tag %in% compartment_tags) %>%
-      dplyr::distinct(target_id, side, .keep_all = TRUE)
-
-    # Diff against what was posted for this root_id
-    have <- read_manifest(rid)
-    want_key <- paste(want$target_id, want$side, want$tag)
-    have_key <- paste(have$target_id, have$side, have$tag)
-    to_delete <- have[!(have_key %in% want_key), ]
-    to_add <- want[!(want_key %in% have_key), ]
-
-    # Synapses on this side still labelled under another root_id
-    conflict <- manifest[owner_key %in% paste(to_add$target_id, to_add$side) &
-                           manifest$root_id != rid, ]
-
-    if (dry_run) {
-      n_added <- n_added + nrow(to_add)
-      n_deleted <- n_deleted + nrow(to_delete) + nrow(conflict)
-      n_synced <- n_synced + 1
-      next
-    }
-
-    # Delete first, so no synapse ever has two rows in a table
-    if (nrow(to_delete) || nrow(conflict)) {
-      delete_manifest_rows(dplyr::bind_rows(to_delete, conflict))
-      have <- have[have_key %in% want_key, ]
-      write_manifest(rid, have)
-      for (orid in unique(conflict$root_id)) {
-        om <- read_manifest(orid)
-        write_manifest(orid, om[!(om$annotation_id %in% conflict$annotation_id), ])
-      }
-      keep <- !(manifest$annotation_id %in% c(conflict$annotation_id, to_delete$annotation_id))
-      manifest <- manifest[keep, ]
-      owner_key <- owner_key[keep]
-      n_deleted <- n_deleted + nrow(to_delete) + nrow(conflict)
-    }
-
-    for (s in names(cave_tables)) {
-      add <- to_add[to_add$side == s, ]
-      if (!nrow(add)) next
-      add$annotation_id <- post_rows(cave_tables[[s]], add)
-      add <- add[, c("annotation_id", "target_id", "side", "tag")]
-      have <- dplyr::bind_rows(have, add)
-      write_manifest(rid, have)
-      manifest <- dplyr::bind_rows(manifest, dplyr::mutate(add, root_id = rid))
-      owner_key <- c(owner_key, paste(add$target_id, add$side))
-      n_added <- n_added + nrow(add)
-    }
-
-    # Record as synced only once CAVE matches the labels CSV
-    synced <- synced %>%
-      dplyr::filter(root_id != rid) %>%
-      dplyr::bind_rows(data.frame(root_id = rid, csv_mtime = to_sync$csv_mtime[i]))
-    readr::write_csv(synced, synced.file)
-    n_synced <- n_synced + 1
-  }, error = function(e) {
-    message(sprintf("  Error syncing %s: %s", rid, e$message))
-  })
-
-  if (i %% 50 == 0) {
-    message(sprintf("  Synced %d/%d neurons (%d added, %d deleted)",
-                    i, nrow(to_sync), n_added, n_deleted))
+for (s in names(cave_tables)) {
+  ids <- to_delete$annotation_id[to_delete$side == s]
+  for (chunk in split(ids, ceiling(seq_along(ids) / chunksize))) {
+    fcc$annotation$delete_annotation(cave_tables[[s]], as_py_int64(chunk))
+    manifest <- manifest[!(manifest$annotation_id %in% chunk & manifest$side == s), ]
+    save_manifest()
+    n_deleted <- n_deleted + length(chunk)
   }
 }
+if (n_deleted) message(sprintf("Deleted %d annotations", n_deleted))
 
-message(sprintf("%s %d neurons: %d annotations %s, %d %s",
-                if (dry_run) "Would sync" else "Synced", n_synced,
-                n_added, if (dry_run) "to add" else "added",
-                n_deleted, if (dry_run) "to delete" else "deleted"))
+n_added <- 0
+out_of_time <- FALSE
+for (s in names(cave_tables)) {
+  add <- to_add[to_add$side == s, ]
+  for (chunk in split(add, ceiling(seq_len(nrow(add)) / chunksize))) {
+    if (as.numeric(difftime(Sys.time(), start_time, units = "secs")) > time_budget) {
+      out_of_time <- TRUE
+      break
+    }
+    chunk$annotation_id <- post_rows(cave_tables[[s]], chunk)
+    manifest <- dplyr::bind_rows(manifest, chunk[, c("annotation_id", "target_id", "side", "tag")])
+    save_manifest()
+    n_added <- n_added + nrow(chunk)
+  }
+}
+if (out_of_time) {
+  message(sprintf("Time budget reached; %d annotations left for the next run",
+                  nrow(to_add) - n_added))
+}
+message(sprintf("Added %d annotations; manifest now has %d", n_added, nrow(manifest)))
 message("### crantb: compartment synapse sync complete ###")
 
 })

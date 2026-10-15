@@ -82,18 +82,17 @@ for (i in seq_len(nrow(ac.rule))) {
     if (!file.exists(raw_file)) next
     raw <- readr::read_csv(raw_file, show_col_types = FALSE, progress = FALSE,
                            col_types = readr::cols(.default = readr::col_character()))
-    syns <- data.frame(connector_id = character(0))
-    if (nrow(raw) > 0) {
-      syns <- raw %>%
-        dplyr::filter(as.numeric(size) > 5, pre_pt_root_id != post_pt_root_id) %>%
-        dplyr::transmute(connector_id = as.character(id),
-                         pre_id = as.character(pre_pt_root_id),
-                         post_id = as.character(post_pt_root_id),
-                         prepost = as.integer(prepost),
-                         size = as.numeric(size),
-                         status = "good",
-                         Label = label)
-    }
+    # crant-synapses.R only writes this file when there are synapses, so the
+    # columns are always present
+    syns <- raw %>%
+      dplyr::filter(as.numeric(size) > 5, pre_pt_root_id != post_pt_root_id) %>%
+      dplyr::transmute(connector_id = id,
+                       pre_id = pre_pt_root_id,
+                       post_id = post_pt_root_id,
+                       prepost = as.integer(prepost),
+                       size = as.numeric(size),
+                       status = "good",
+                       Label = label)
     readr::write_csv(syns, out_file)
     # A split skeleton from an earlier flow-centrality split no longer applies
     if (file.exists(swc_file)) file.remove(swc_file)

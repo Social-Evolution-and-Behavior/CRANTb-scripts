@@ -16,7 +16,8 @@ meta <- reticulate::py_to_r(fcc$annotation$get_table_metadata("synapses_v2"))
 voxel_resolution <- as.numeric(meta$voxel_resolution)
 
 description <- paste(
-  "Compartment of the %s neuron at each synapses_v2 synapse.",
+  "Compartment of the %s neuron at synapses_v2 synapses between two labelled neurons",
+  "(BACKBONE_PROOFREAD, afferent or efferent); other synapses have no row.",
   "target_id is the synapses_v2 id; tag is one of axon, dendrite,",
   "primary_dendrite, primary_neurite or soma.",
   "Afferent neurons are labelled wholly axon and efferent neurons wholly dendrite;",
