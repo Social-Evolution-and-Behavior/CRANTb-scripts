@@ -64,6 +64,8 @@ if (nrow(to_process) == 0) {
 # Read all batch metrics CSVs and build a lookup
 seg_index_lookup <- NULL
 metrics_files <- list.files(metrics.folder, pattern = "\\.csv$", full.names = TRUE)
+# Newest first, so distinct() below keeps the most recent entry
+metrics_files <- metrics_files[order(file.mtime(metrics_files), decreasing = TRUE)]
 if (length(metrics_files) > 0) {
   seg_index_lookup <- tryCatch({
     all_mets <- lapply(metrics_files, function(f) {
@@ -109,9 +111,12 @@ results <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
     dendrite_input  <- sum(syns$prepost == 1 & syns$compartment == "dendrite", na.rm = TRUE)
     dendrite_output <- sum(syns$prepost == 0 & syns$compartment == "dendrite", na.rm = TRUE)
 
-    # Get segregation index from metrics lookup
+    # Get segregation index from metrics lookup. Only neurons split by flow
+    # centrality have one; afferent/efferent neurons labelled by rule have
+    # no split skeleton and are left blank
     seg_idx <- NA_real_
-    if (!is.null(seg_index_lookup) && "segregation_index" %in% colnames(seg_index_lookup)) {
+    has_split_swc <- file.exists(file.path(crant.l2split.save.path, "swc", paste0(rid, ".swc")))
+    if (has_split_swc && !is.null(seg_index_lookup) && "segregation_index" %in% colnames(seg_index_lookup)) {
       match_row <- seg_index_lookup[seg_index_lookup$root_id == rid, ]
       if (nrow(match_row) > 0) {
         seg_idx <- match_row$segregation_index[1]

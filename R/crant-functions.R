@@ -148,3 +148,36 @@ assign_strahler.neuron <- function(x, ...) {
   }
   x
 }
+
+# Remove the entry for a metric prefix from root_id_processed, so the
+# corresponding stage recomputes it on its next run
+clear_processed_rootid <- function(root_id_processed, prefix) {
+  if (is.na(root_id_processed) || root_id_processed == "") return("")
+  entries <- unlist(strsplit(root_id_processed, split = ",|, "))
+  entries <- entries[!grepl(paste0("^", prefix, "_"), entries)]
+  paste(sort(unique(entries)), collapse = ",")
+}
+
+# Neurons whose compartments are set by rule rather than by splitting:
+# afferent neurons are wholly axon, efferent neurons wholly dendrite.
+# Sensory neurons count as afferent when flow is not set.
+# Returns "afferent", "efferent" or NA for each neuron
+compartment_rule <- function(flow, super_class) {
+  rule <- ifelse(flow %in% c("afferent", "efferent"), flow, NA_character_)
+  rule[is.na(rule) & super_class %in% "sensory"] <- "afferent"
+  rule
+}
+
+# Proofread backbone status, as used to decide which neurons can be split
+is_backbone_proofread <- function(status) {
+  vapply(status, function(s) {
+    if (is.na(s)) return(FALSE)
+    entries <- trimws(unlist(strsplit(s, split = ",|, ")))
+    "BACKBONE_PROOFREAD" %in% entries & !("NOT_BACKBONE_PROOFREAD" %in% entries)
+  }, logical(1), USE.NAMES = FALSE)
+}
+
+# Statuses that mark a seatable row as not a neuron
+is_non_neuron <- function(status) {
+  grepl("DELETE|GLIA|NOT_A_NEURON|DEBRIS", status, ignore.case = TRUE) & !is.na(status)
+}

@@ -31,24 +31,114 @@ dir.create(metrics.folder,  recursive = TRUE, showWarnings = FALSE)
 
 message("### crantb: querying seatable for proofread neurons ###")
 ac <- crant_table_query(
-  sql = "SELECT _id, root_id, status, position, super_class, cell_class, root_id_processed FROM CRANTb_meta"
+  sql = "SELECT _id, root_id, status, position, super_class, cell_class, flow, root_id_processed FROM CRANTb_meta"
 )
 ac[ac == ""] <- NA
 ac[ac == "0"] <- NA
 
 # Filter non-neurons
 ac <- ac %>%
-  dplyr::filter(!(grepl("DELETE|GLIA|NOT_A_NEURON|DEBRIS", status, ignore.case = TRUE) & !is.na(status))) %>%
+  dplyr::filter(!is_non_neuron(status)) %>%
   dplyr::filter(!is.na(root_id)) %>%
   dplyr::distinct(root_id, .keep_all = TRUE)
+ac$rule <- compartment_rule(ac$flow, ac$super_class)
 
-# Filter to BACKBONE_PROOFREAD only
-ac$is_backbone_proofread <- sapply(ac$status, function(s) {
-  if (is.na(s)) return(FALSE)
-  entries <- trimws(unlist(strsplit(s, split = ",|, ")))
-  "BACKBONE_PROOFREAD" %in% entries & !("NOT_BACKBONE_PROOFREAD" %in% entries)
-})
-ac <- ac %>% dplyr::filter(is_backbone_proofread, !is.na(position))
+###############################################
+### Afferent / efferent neurons by rule     ###
+###############################################
+
+# Afferent neurons are wholly axon and efferent neurons wholly dendrite,
+# whether or not they are proofread. Their arbors are truncated at the
+# edge of the brain, so flow centrality cannot split them. Label every
+# synapse from the raw synapse CSVs (crant-synapses.R) with the same
+# filters as crant_add_synapses, without a skeleton.
+ac.rule <- ac %>% dplyr::filter(!is.na(rule))
+message(sprintf("Found %d afferent/efferent neurons to label by rule", nrow(ac.rule)))
+
+cleanup_stale_files(ac.rule$root_id, ac.rule$root_id_processed, "split",
+                    dir = split.folder, ext = ".swc")
+cleanup_stale_files(ac.rule$root_id, ac.rule$root_id_processed, "split",
+                    dir = synapses.folder, ext = ".csv")
+
+rule.done <- character(0)
+rule.rewritten <- character(0)
+for (i in seq_len(nrow(ac.rule))) {
+  rid <- ac.rule$root_id[i]
+  label <- if (ac.rule$rule[i] == "afferent") 2L else 3L
+  out_file <- file.path(synapses.folder, paste0(rid, ".csv"))
+  swc_file <- file.path(split.folder, paste0(rid, ".swc"))
+  tryCatch({
+    # Up to date if already labelled by this rule for this root_id
+    if (file.exists(out_file) && !file.exists(swc_file) &&
+        identical(get_processed_rootid(ac.rule$root_id_processed[i], "split"), rid)) {
+      old <- readr::read_csv(out_file, show_col_types = FALSE, progress = FALSE,
+                             col_select = "Label")
+      if (all(old$Label == label)) {
+        rule.done <- c(rule.done, rid)
+        next
+      }
+    }
+    raw_file <- file.path(crant.synapses.save.path, paste0(rid, ".csv"))
+    if (!file.exists(raw_file)) next
+    raw <- readr::read_csv(raw_file, show_col_types = FALSE, progress = FALSE,
+                           col_types = readr::cols(.default = readr::col_character()))
+    syns <- data.frame(connector_id = character(0))
+    if (nrow(raw) > 0) {
+      syns <- raw %>%
+        dplyr::filter(as.numeric(size) > 5, pre_pt_root_id != post_pt_root_id) %>%
+        dplyr::transmute(connector_id = as.character(id),
+                         pre_id = as.character(pre_pt_root_id),
+                         post_id = as.character(post_pt_root_id),
+                         prepost = as.integer(prepost),
+                         size = as.numeric(size),
+                         status = "good",
+                         Label = label)
+    }
+    readr::write_csv(syns, out_file)
+    # A split skeleton from an earlier flow-centrality split no longer applies
+    if (file.exists(swc_file)) file.remove(swc_file)
+    rule.done <- c(rule.done, rid)
+    rule.rewritten <- c(rule.rewritten, rid)
+  }, error = function(e) {
+    message(sprintf("  Rule labelling failed for %s: %s", rid, e$message))
+  })
+}
+message(sprintf("Labelled %d neurons by rule (%d rewritten)",
+                length(rule.done), length(rule.rewritten)))
+
+# Mark rule neurons as split, and have split metrics recomputed where the
+# labels were rewritten
+rule.update <- ac.rule %>%
+  dplyr::filter(root_id %in% rule.done) %>%
+  dplyr::select(`_id`, root_id, root_id_processed)
+if (nrow(rule.update) > 0) {
+  new_processed <- sapply(seq_len(nrow(rule.update)), function(i) {
+    p <- set_processed_rootid(rule.update$root_id_processed[i], "split", rule.update$root_id[i])
+    if (rule.update$root_id[i] %in% rule.rewritten) p <- clear_processed_rootid(p, "split_metrics")
+    p
+  })
+  changed <- !mapply(identical, new_processed, rule.update$root_id_processed, USE.NAMES = FALSE)
+  rule.update$root_id_processed <- new_processed
+  rule.update <- rule.update[changed, ]
+  if (nrow(rule.update) > 0) {
+    message(sprintf("Updating root_id_processed for %d rule-labelled neurons", nrow(rule.update)))
+    crant_table_update_rows(
+      df = rule.update %>% dplyr::select(`_id`, root_id_processed),
+      table = "CRANTb_meta",
+      base = "CRANTb",
+      append_allowed = FALSE,
+      chunksize = 1000
+    )
+  }
+}
+
+###############################################
+### Proofread neurons split by flow         ###
+###############################################
+
+# Filter to BACKBONE_PROOFREAD neurons not labelled by rule
+ac <- ac %>%
+  dplyr::filter(is.na(rule), is_backbone_proofread(status), !is.na(position))
 
 message(sprintf("Found %d backbone-proofread neurons with positions", nrow(ac)))
 
@@ -91,18 +181,6 @@ if (nrow(to_process) == 0) {
   message("All splits are up to date. Nothing to do.")
   return(invisible())
 }
-
-# Identify sensory and motor neurons for label overrides
-sensories <- to_process$root_id[sapply(seq_len(nrow(to_process)), function(i) {
-  sc <- to_process$super_class[i]
-  cc <- to_process$cell_class[i]
-  any(grepl("sensory|afferent", c(sc, cc), ignore.case = TRUE), na.rm = TRUE)
-})]
-motors <- to_process$root_id[sapply(seq_len(nrow(to_process)), function(i) {
-  sc <- to_process$super_class[i]
-  cc <- to_process$cell_class[i]
-  any(grepl("motor|efferent|endocrine|visceral", c(sc, cc), ignore.case = TRUE), na.rm = TRUE)
-})]
 
 ###########################
 ### Process in batches  ###
@@ -231,20 +309,6 @@ for (batch_idx in seq_along(batches)) {
     neurons.flow <- neurons.flow[sapply(neurons.flow, nat::is.neuron)]
 
     if (length(neurons.flow) == 0) next
-
-    # i. Override labels for sensory/motor neurons
-    ids.sensories <- intersect(names(neurons.flow), sensories)
-    if (length(ids.sensories)) {
-      for (sid in ids.sensories) {
-        neurons.flow[[sid]] <- hemibrainr::add_Label(neurons.flow[[sid]], Label = 2)
-      }
-    }
-    ids.motors <- intersect(names(neurons.flow), motors)
-    if (length(ids.motors)) {
-      for (mid in ids.motors) {
-        neurons.flow[[mid]] <- hemibrainr::add_Label(neurons.flow[[mid]], Label = 3)
-      }
-    }
 
     # j. Assign unlabeled nodes (Label=0) to nearest labelled node
     for (id in names(neurons.flow)) {
