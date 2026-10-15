@@ -47,7 +47,7 @@ source("R/crant-split.R")
 message("### crantb: compiling compartment metrics ###")
 source("R/crant-split-metrics.R")
 
-# annotate CAVE with compartment labels per synapse
-message("### crantb: updating CAVE compartment_synapses_pre_v2 and _post_v2 ###")
+# compartment labels per synapse between labelled neurons (local table)
+message("### crantb: compiling local compartment synapse table ###")
 source("R/crant-compartment-synapses.R")
 
