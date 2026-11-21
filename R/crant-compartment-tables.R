@@ -1,8 +1,9 @@
 ###########################################################
-### Create the CAVE compartment_synapses_pre_v2 and
-### compartment_synapses_post_v2 tables (run once)
+### Create the CAVE compartment_synapses_pre_v3 and
+### compartment_synapses_post_v3 tables (run once)
 ###
-### Both are reference_tag tables referencing synapses_v2.
+### Both are reference_tag tables referencing crant.synapse.table
+### (synapses_v3 since 2026-11-20; synapses_v2 could not be referenced).
 ### They are populated nightly by
 ### crant-compartment-synapses.R
 ###########################################################
@@ -12,13 +13,15 @@ local({
 
 fcc <- crant_cave_client()
 existing_tables <- unlist(reticulate::py_to_r(fcc$annotation$get_tables()))
-meta <- reticulate::py_to_r(fcc$annotation$get_table_metadata("synapses_v2"))
+syn_table <- crant.synapse.table
+syn_suffix <- sub("^synapses_", "", syn_table)   # "v3"
+meta <- reticulate::py_to_r(fcc$annotation$get_table_metadata(syn_table))
 voxel_resolution <- as.numeric(meta$voxel_resolution)
 
 description <- paste(
-  "Compartment of the %s neuron at synapses_v2 synapses between two labelled neurons",
+  "Compartment of the %s neuron at", syn_table, "synapses between two labelled neurons",
   "(BACKBONE_PROOFREAD, afferent or efferent); other synapses have no row.",
-  "target_id is the synapses_v2 id; tag is one of axon, dendrite,",
+  "target_id is the", syn_table, "id; tag is one of axon, dendrite,",
   "primary_dendrite, primary_neurite or soma.",
   "Afferent neurons are labelled wholly axon and efferent neurons wholly dendrite;",
   "for efferent neurons this includes their output synapses in the brain.",
@@ -31,7 +34,7 @@ description <- paste(
 )
 
 for (side in c("pre", "post")) {
-  table_name <- sprintf("compartment_synapses_%s_v2", side)
+  table_name <- sprintf("compartment_synapses_%s_%s", side, syn_suffix)
   if (table_name %in% existing_tables) {
     message(sprintf("%s already exists", table_name))
     next
@@ -42,7 +45,7 @@ for (side in c("pre", "post")) {
     schema_name = "reference_tag",
     description = sprintf(description, neuron),
     voxel_resolution = as.list(voxel_resolution),
-    reference_table = "synapses_v2",
+    reference_table = syn_table,
     track_target_id_updates = TRUE,
     write_permission = "PRIVATE",
     read_permission = "PUBLIC"

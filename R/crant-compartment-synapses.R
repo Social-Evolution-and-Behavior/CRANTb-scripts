@@ -2,31 +2,32 @@
 ### Compile compartment labels for synapses between
 ### labelled neurons (local table)
 ###
-### For each synapses_v2 synapse whose presynaptic AND
+### For each synapse (crant.synapse.table, now synapses_v3) whose presynaptic AND
 ### postsynaptic neurons are both labelled, records the
 ### compartment it sits on in each neuron. Labelled neurons:
 ###   - afferent neurons: every synapse "axon" (by rule)
 ###   - efferent neurons: every synapse "dendrite" (by rule)
 ###   - other BACKBONE_PROOFREAD neurons: flow-centrality split
-### Labels come from l2split/synapses/{root_id}.csv, written
+### Labels come from l2split_v3/synapses/{root_id}.csv, written
 ### by crant-split.R. Synapses flagged as bad are skipped.
 ###
 ### Writes, under crant.save.path/compartments/:
-###   compartment_synapses_v2.csv  one row per synapse:
-###     synapse_id      synapses_v2 id
+###   compartment_synapses_v3.csv  one row per synapse:
+###     synapse_id      synapses_v3 id
 ###     pre_root_id,  pre_compartment,  pre_method
 ###     post_root_id, post_compartment, post_method
 ###   compartment = axon, dendrite, primary_dendrite,
 ###                 primary_neurite or soma
 ###   method      = flow_centrality, afferent or efferent
-###   changes.csv  one row per run: synapses added, removed
+###   changes_synapses_v3.csv  one row per run: synapses added, removed
 ###                and relabelled since the previous run
 ###
 ### Rebuilt in full each run, so labels follow edits to
 ### either neuron, demotions and flow class changes.
 ### Kept local for now; R/crant-compartment-tables.R creates
-### the matching CAVE tables once synapses_v2 can be
-### referenced there.
+### the matching CAVE tables (synapses_v3 can be referenced;
+### synapses_v2 could not). The v2 outputs (compartment_synapses_v2.csv,
+### changes.csv) are left as they were on 2026-11-20.
 ###########################################################
 source("R/crant-startup.R")
 
@@ -36,8 +37,10 @@ compartment_tags <- c("axon", "dendrite", "primary_dendrite",
                       "primary_neurite", "soma")
 synapses.folder <- file.path(crant.l2split.save.path, "synapses")
 compartments.folder <- file.path(crant.save.path, "compartments")
-out.file <- file.path(compartments.folder, "compartment_synapses_v2.csv")
-changes.file <- file.path(compartments.folder, "changes.csv")
+out.file <- file.path(compartments.folder,
+                      paste0("compartment_", crant.synapse.table, ".csv"))
+changes.file <- file.path(compartments.folder,
+                          paste0("changes_", crant.synapse.table, ".csv"))
 chr_cols <- readr::cols(.default = readr::col_character())
 dir.create(compartments.folder, recursive = TRUE, showWarnings = FALSE)
 

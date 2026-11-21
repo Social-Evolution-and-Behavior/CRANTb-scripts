@@ -22,10 +22,14 @@ ac <- ac %>%
 message(sprintf("Found %d neurons in seatable", nrow(ac)))
 
 # Determine which neurons need synapse update
-ac$needs_update <- needs_metric_update(ac$root_id, ac$root_id_processed, "synapses")
+# "synv3": synapses_v3 counts. The old "synapses" tag recorded synapses_v2
+# counts, so a new prefix makes every neuron recount once. Not "synapses_v3":
+# tags are <prefix>_<root_id>, and "^synapses_" would match it.
+syn.tag <- "synv3"
+ac$needs_update <- needs_metric_update(ac$root_id, ac$root_id_processed, syn.tag)
 
 # Clean up stale synapse CSVs for neurons whose root_id has changed
-cleanup_stale_files(ac$root_id, ac$root_id_processed, "synapses",
+cleanup_stale_files(ac$root_id, ac$root_id_processed, syn.tag,
                     dir = crant.synapses.save.path, ext = ".csv")
 
 to_process <- ac %>% dplyr::filter(needs_update)
@@ -49,13 +53,15 @@ synapse_list <- pbapply::pblapply(seq_len(nrow(to_process)), function(i) {
       syns <- readr::read_csv(syn_file, show_col_types = FALSE, progress = FALSE, col_types = crant.col.types)
     } else {
       # Query CAVE for input synapses
-      in.syns <- crant_partners(rid, partners = "input")
+      in.syns <- crant_partners(rid, partners = "input",
+                                synapse_table = crant.synapse.table)
       if (nrow(in.syns) > 0) {
         in.syns$prepost <- 1L
       }
 
       # Query CAVE for output synapses
-      out.syns <- crant_partners(rid, partners = "output")
+      out.syns <- crant_partners(rid, partners = "output",
+                                 synapse_table = crant.synapse.table)
       if (nrow(out.syns) > 0) {
         out.syns$prepost <- 0L
       }
@@ -110,7 +116,9 @@ synapse.update <- to_process %>%
 
 # Update root_id_processed tags
 synapse.update$root_id_processed <- sapply(seq_len(nrow(synapse.update)), function(i) {
-  set_processed_rootid(synapse.update$root_id_processed[i], "synapses", synapse.update$root_id[i])
+  p <- set_processed_rootid(synapse.update$root_id_processed[i], syn.tag, synapse.update$root_id[i])
+  # drop the superseded synapses_v2 tag
+  clear_processed_rootid(p, "synapses")
 })
 
 # Clean for seatable

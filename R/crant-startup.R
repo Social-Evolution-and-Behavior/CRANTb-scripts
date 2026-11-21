@@ -86,8 +86,13 @@ crant.obj.save.path <- file.path(crant.save.path,"obj")
 crant.swc.save.path <- file.path(crant.save.path,"swc")
 crant.l2swc.save.path <- file.path(crant.save.path,"l1")
 crant.split.save.path <- file.path(crant.save.path,"split")
-crant.l2split.save.path <- file.path(crant.save.path,"l2split")
-crant.synapses.save.path <- file.path(crant.save.path,"synapses")
+# Synapse table, and the per-table caches derived from it. synapses_v3
+# (Zetta CRA9) replaced synapses_v2 on 2026-11-20. The v2 caches stay in
+# synapses/ and l2split/; new folders make every stage recompute from v3
+# (crant-synapses.R also has its own "synv3" processed tag).
+crant.synapse.table <- "synapses_v3"
+crant.l2split.save.path <- file.path(crant.save.path,"l2split_v3")
+crant.synapses.save.path <- file.path(crant.save.path,"synapses_v3")
 crant.metrics.save.path <- file.path(crant.save.path,"metrics")
 crant.volumes.save.path <- file.path(crant.save.path,"volumes")
 crant.meta.save.path <- file.path(crant.save.path,"meta")
